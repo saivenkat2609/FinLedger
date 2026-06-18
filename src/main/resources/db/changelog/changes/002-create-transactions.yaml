@@ -1,0 +1,74 @@
+databaseChangeLog:
+  - changeSet:
+      id: 002-create-transactions
+      author: ledger-dev
+      changes:
+        - createTable:
+            tableName: transactions
+            columns:
+              - column:
+                  name: id
+                  type: UUID
+                  constraints:
+                    primaryKey: true
+                    nullable: false
+              - column:
+                  name: amount
+                  type: NUMERIC(19,2)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: currency
+                  type: VARCHAR(3)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: description
+                  type: VARCHAR(500)
+              - column:
+                  name: status
+                  type: VARCHAR(20)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: idempotency_key
+                  type: VARCHAR(255)
+                  constraints:
+                    nullable: false
+                    unique: true
+              - column:
+                  name: correlation_id
+                  type: VARCHAR(100)
+              - column:
+                  name: created_at
+                  type: TIMESTAMP
+                  constraints:
+                    nullable: false
+              - column:
+                  name: settled_at
+                  type: TIMESTAMP
+              - column:
+                  name: version
+                  type: BIGINT
+                  defaultValue: 0
+        - createIndex:
+            tableName: transactions
+            indexName: idx_transactions_status
+            columns:
+              - column:
+                  name: status
+        - createIndex:
+            tableName: transactions
+            indexName: idx_transactions_idempotency_key
+            columns:
+              - column:
+                  name: idempotency_key
+        - createIndex:
+            tableName: transactions
+            indexName: idx_transactions_created_at
+            columns:
+              - column:
+                  name: created_at
+      rollback:
+        - dropTable:
+            tableName: transactions

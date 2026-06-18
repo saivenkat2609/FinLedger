@@ -1,0 +1,68 @@
+databaseChangeLog:
+  - changeSet:
+      id: 003-create-journal-entries
+      author: ledger-dev
+      changes:
+        - createTable:
+            tableName: journal_entries
+            columns:
+              - column:
+                  name: id
+                  type: UUID
+                  constraints:
+                    primaryKey: true
+                    nullable: false
+              - column:
+                  name: transaction_id
+                  type: UUID
+                  constraints:
+                    nullable: false
+                    foreignKeyName: fk_journal_entries_transaction_id
+                    references: transactions(id)
+              - column:
+                  name: account_id
+                  type: UUID
+                  constraints:
+                    nullable: false
+                    foreignKeyName: fk_journal_entries_account_id
+                    references: accounts(id)
+              - column:
+                  name: entry_type
+                  type: VARCHAR(10)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: amount
+                  type: NUMERIC(19,2)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: created_at
+                  type: TIMESTAMP
+                  constraints:
+                    nullable: false
+              - column:
+                  name: version
+                  type: BIGINT
+                  defaultValue: 0
+        - createIndex:
+            tableName: journal_entries
+            indexName: idx_journal_entries_account_id
+            columns:
+              - column:
+                  name: account_id
+        - createIndex:
+            tableName: journal_entries
+            indexName: idx_journal_entries_transaction_id
+            columns:
+              - column:
+                  name: transaction_id
+        - createIndex:
+            tableName: journal_entries
+            indexName: idx_journal_entries_entry_type
+            columns:
+              - column:
+                  name: entry_type
+      rollback:
+        - dropTable:
+            tableName: journal_entries
