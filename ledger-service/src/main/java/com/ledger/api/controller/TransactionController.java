@@ -7,6 +7,8 @@ import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.UUID;
+
 @RestController
 @RequestMapping("/api/transactions")
 public class TransactionController {
@@ -20,5 +22,11 @@ public class TransactionController {
     @ResponseStatus(HttpStatus.CREATED)
     public TransactionResponse postTransfer(@Valid @RequestBody PostTransactionRequest request) {
         return transactionService.postTransfer(request);
+    }
+
+    @PostMapping("/{id}/reverse")
+    @ResponseStatus(HttpStatus.OK)
+    public TransactionResponse reverseTransaction(@PathVariable UUID id) {
+        return transactionService.reverseTransaction(id);
     }
 }
