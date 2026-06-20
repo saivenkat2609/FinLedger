@@ -1,0 +1,133 @@
+spring:
+  application:
+    name: ledger-service
+
+  # PostgreSQL Configuration
+  datasource:
+    url: jdbc:postgresql://localhost:5432/ledger
+    username: ledger
+    password: ledger123
+    driver-class-name: org.postgresql.Driver
+
+  # JPA / Hibernate Configuration
+  jpa:
+    hibernate:
+      ddl-auto: validate  # NEVER use create/update — Liquibase owns the schema
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+        format_sql: true
+        use_sql_comments: true
+
+  # Liquibase Configuration
+  liquibase:
+    change-log: classpath:db/changelog/db.changelog-master.yaml
+    enabled: true
+    drop-first: false
+
+  # Redis Configuration
+  data:
+    redis:
+      host: localhost
+      port: 6379
+      timeout: 2000ms
+      lettuce:
+        pool:
+          max-active: 8
+          max-idle: 8
+          min-idle: 0
+
+  # Cache Configuration (using Redis)
+  cache:
+    type: redis
+    redis:
+      time-to-live: 300000  # 5 minutes TTL
+
+  # Kafka Configuration
+  kafka:
+    bootstrap-servers: localhost:9093
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
+      acks: all  # Wait for all replicas to acknowledge (safety over speed)
+      retries: 3
+      properties:
+        linger.ms: 10  # Batch messages for 10ms before sending
+    consumer:
+      bootstrap-servers: localhost:9093
+      group-id: ledger-settlement-group
+      auto-offset-reset: earliest  # Start from beginning if no offset exists
+      max-poll-records: 100
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.springframework.kafka.support.serializer.JsonDeserializer
+      properties:
+        spring.json.trusted.packages: "com.ledger.*"  # Whitelist for JSON deserialization
+    listener:
+      type: batch
+      concurrency: 3  # Number of concurrent consumer threads
+
+  # Validation
+  validation:
+    enabled: true
+
+
+eureka:
+  client:
+    serviceUrl:
+      defaultZone: http://localhost:8761/eureka/
+  instance:
+    preferIpAddress: true
+
+# Actuator / Health Checks
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,prometheus
+  endpoint:
+    health:
+      show-details: always
+      probes:
+        enabled: true
+  health:
+    livenessState:
+      enabled: true
+    readinessState:
+      enabled: true
+    diskspace:
+      threshold: 1GB
+
+# Server Configuration
+server:
+  port: 8080
+  servlet:
+    context-path: /
+  error:
+    include-message: always
+    include-stacktrace: on_param
+    include-exception: false
+
+# Logging Configuration
+logging:
+  level:
+    root: INFO
+    com.ledger: DEBUG
+    org.springframework.web: INFO
+    org.springframework.kafka: INFO
+    org.hibernate.SQL: DEBUG
+    org.hibernate.type.descriptor.sql.BasicBinder: TRACE
+  pattern:
+    console: "%d{yyyy-MM-dd HH:mm:ss} [%X{correlationId}] %-5level %logger{36} - %msg%n"
+    file: "%d{yyyy-MM-dd HH:mm:ss} [%X{correlationId}] %-5level %logger{36} - %msg%n"
+  file:
+    name: logs/ledger-api.log
+    max-size: 10MB
+    max-history: 10
+    total-size-cap: 100MB
+
+# Application Custom Properties
+app:
+  idempotency:
+    ttl-hours: 24
+  reconciliation:
+    batch-size: 1000
