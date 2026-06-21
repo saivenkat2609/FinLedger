@@ -7,6 +7,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 import java.math.BigDecimal;
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.UUID;
 
@@ -38,4 +39,20 @@ public interface JournalEntryRepository extends JpaRepository<JournalEntry, UUID
             "ELSE 0 END), 0) " +
             "FROM JournalEntry je WHERE je.account.id = :accountId")
     BigDecimal getAccountBalance(@Param("accountId") UUID accountId);
+
+    // Sum all debits for reconciliation (by date range)
+    @Query("SELECT COALESCE(SUM(je.amount), 0) FROM JournalEntry je " +
+            "WHERE je.entryType = 'DEBIT' " +
+            "AND je.transaction.settledAt BETWEEN :startDate AND :endDate " +
+            "AND je.transaction.status IN ('SETTLED', 'REVERSED')")
+    BigDecimal sumDebitsByDateRange(@Param("startDate") LocalDateTime startDate,
+                                    @Param("endDate") LocalDateTime endDate);
+
+    // Sum all credits for reconciliation (by date range)
+    @Query("SELECT COALESCE(SUM(je.amount), 0) FROM JournalEntry je " +
+            "WHERE je.entryType = 'CREDIT' " +
+            "AND je.transaction.settledAt BETWEEN :startDate AND :endDate " +
+            "AND je.transaction.status IN ('SETTLED', 'REVERSED')")
+    BigDecimal sumCreditsByDateRange(@Param("startDate") LocalDateTime startDate,
+                                     @Param("endDate") LocalDateTime endDate);
 }

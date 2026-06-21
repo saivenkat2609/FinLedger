@@ -32,4 +32,8 @@ public interface TransactionRepository extends JpaRepository<Transaction, UUID> 
     // Find settled transactions for a date
     @Query("SELECT t FROM Transaction t WHERE t.status = com.ledger.api.domain.TransactionStatusType.SETTLED AND t.settledAt >= :startDate AND t.settledAt < :endDate")
     List<Transaction> findSettledTransactionsByDate(@Param("startDate") LocalDateTime startDate, @Param("endDate") LocalDateTime endDate);
+
+    // Count settled transactions in a date range (for reconciliation report)
+    @Query("SELECT COUNT(t) FROM Transaction t WHERE t.status IN ('SETTLED', 'REVERSED') AND t.settledAt BETWEEN :startDate AND :endDate")
+    long countBySettledAtBetween(@Param("startDate") LocalDateTime startDate, @Param("endDate") LocalDateTime endDate);
 }
