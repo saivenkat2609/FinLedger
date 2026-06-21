@@ -45,6 +45,14 @@ management:
     health:
       show-details: always
 
+# Swagger/OpenAPI Configuration
+springdoc:
+  swagger-ui:
+    enabled: true
+    path: /swagger-ui.html
+  api-docs:
+    path: /v3/api-docs
+
 logging:
   level:
     com.ledger.auth: DEBUG
