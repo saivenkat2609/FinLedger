@@ -3,6 +3,7 @@ package com.ledger.api.service;
 import com.ledger.api.domain.*;
 import com.ledger.api.dto.PostTransactionRequest;
 import com.ledger.api.dto.TransactionResponse;
+import com.ledger.api.event.TransactionSettledEvent;
 import com.ledger.api.exception.AccountNotFoundException;
 import com.ledger.api.exception.CurrencyMismatchException;
 import com.ledger.api.exception.DuplicateTransactionException;
@@ -12,6 +13,8 @@ import com.ledger.api.exception.InvalidTransactionException;
 import com.ledger.api.repository.AccountRepository;
 import com.ledger.api.repository.JournalEntryRepository;
 import com.ledger.api.repository.TransactionRepository;
+import lombok.extern.slf4j.Slf4j;
+import org.slf4j.MDC;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -19,18 +22,22 @@ import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.UUID;
 
+@Slf4j
 @Service
 public class TransactionService {
     private final TransactionRepository transactionRepository;
     private final JournalEntryRepository journalEntryRepository;
     private final AccountRepository accountRepository;
+    private final TransactionEventPublisher eventPublisher;
 
     public TransactionService(TransactionRepository transactionRepository,
                             JournalEntryRepository journalEntryRepository,
-                            AccountRepository accountRepository) {
+                            AccountRepository accountRepository,
+                            TransactionEventPublisher eventPublisher) {
         this.transactionRepository = transactionRepository;
         this.journalEntryRepository = journalEntryRepository;
         this.accountRepository = accountRepository;
+        this.eventPublisher = eventPublisher;
     }
 
     @Transactional
@@ -105,10 +112,40 @@ public class TransactionService {
 
         // 10. Update transaction status to SETTLED
         savedTransaction.setStatus(TransactionStatusType.SETTLED);
-        savedTransaction.setSettledAt(LocalDateTime.now());
+        LocalDateTime settledAt = LocalDateTime.now();
+        savedTransaction.setSettledAt(settledAt);
         transactionRepository.save(savedTransaction);
 
+        // 11. Publish settlement event to Kafka
+        // This is called AFTER the database transaction commits
+        // If Kafka publishing fails, it won't roll back the database transaction
+        publishSettlementEvent(savedTransaction, sourceAccount, destinationAccount, settledAt);
+
         return mapToResponse(savedTransaction);
+    }
+
+    private void publishSettlementEvent(Transaction transaction, Account sourceAccount, Account destinationAccount, LocalDateTime settledAt) {
+        try {
+            String correlationId = MDC.get("X-Correlation-ID");
+
+            TransactionSettledEvent event = TransactionSettledEvent.fromTransaction(
+                    transaction.getId(),
+                    sourceAccount.getId(),
+                    destinationAccount.getId(),
+                    transaction.getAmount(),
+                    transaction.getCurrency(),
+                    transaction.getDescription(),
+                    transaction.getStatus().toString(),
+                    settledAt.atZone(java.time.ZoneId.systemDefault()).toInstant(),
+                    correlationId
+            );
+
+            eventPublisher.publishTransactionSettlement(event);
+        } catch (Exception e) {
+            log.warn("Failed to publish transaction settlement event for transaction: {}, but continuing...",
+                    transaction.getId(), e);
+            // Don't throw - this is async notification, not critical to the transaction
+        }
     }
 
     private TransactionResponse mapToResponse(Transaction transaction) {
