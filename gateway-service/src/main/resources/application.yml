@@ -20,6 +20,16 @@ spring:
           predicates:
             - Path=/reports/**
 
+  data:
+    redis:
+      host: localhost
+      port: 6379
+      timeout: 2000ms
+      lettuce:
+        pool:
+          max-active: 8
+          max-idle: 8
+
 server:
   port: 8080
 
@@ -43,3 +53,8 @@ logging:
   level:
     com.ledger.gateway: DEBUG
     org.springframework.cloud.gateway: INFO
+
+app:
+  rate-limit:
+    authenticated: 1000
+    anonymous: 100

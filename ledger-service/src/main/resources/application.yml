@@ -107,6 +107,14 @@ server:
     include-stacktrace: on_param
     include-exception: false
 
+# Swagger/OpenAPI Configuration
+springdoc:
+  swagger-ui:
+    enabled: true
+    path: /swagger-ui.html
+  api-docs:
+    path: /v3/api-docs
+
 # Logging Configuration
 logging:
   level:
