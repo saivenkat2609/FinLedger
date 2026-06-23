@@ -8,6 +8,8 @@ import com.ledger.api.exception.AccountAlreadyExistsException;
 import com.ledger.api.exception.AccountNotFoundException;
 import com.ledger.api.repository.AccountRepository;
 import org.springframework.cache.annotation.Cacheable;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -63,6 +65,62 @@ public class AccountService {
     public List<Account> getActiveAccounts() {
         return accountRepository.findByIsActiveTrue();
     }
+
+    // === Feature 11: Pagination & Filtering ===
+
+    /**
+     * List all accounts with pagination
+     */
+    public Page<AccountResponse> listAccounts(Pageable pageable) {
+        return accountRepository.findAll(pageable)
+                .map(this::mapToResponse);
+    }
+
+    /**
+     * Search accounts with optional filters
+     */
+    public Page<AccountResponse> searchAccounts(
+            AccountType type,
+            String currency,
+            boolean onlyActive,
+            String searchTerm,
+            Pageable pageable) {
+        return accountRepository.findWithFilters(type, currency, onlyActive, searchTerm, pageable)
+                .map(this::mapToResponse);
+    }
+
+    /**
+     * Filter accounts by type
+     */
+    public Page<AccountResponse> findByType(AccountType type, Pageable pageable) {
+        return accountRepository.findByType(type, pageable)
+                .map(this::mapToResponse);
+    }
+
+    /**
+     * Filter accounts by currency
+     */
+    public Page<AccountResponse> findByCurrency(String currency, Pageable pageable) {
+        return accountRepository.findByCurrency(currency, pageable)
+                .map(this::mapToResponse);
+    }
+
+    /**
+     * Filter active accounts only
+     */
+    public Page<AccountResponse> findActiveAccounts(Pageable pageable) {
+        return accountRepository.findByIsActiveTrue(pageable)
+                .map(this::mapToResponse);
+    }
+
+    /**
+     * Search accounts by name (contains)
+     */
+    public Page<AccountResponse> searchByName(String searchTerm, Pageable pageable) {
+        return accountRepository.searchByName(searchTerm, pageable)
+                .map(this::mapToResponse);
+    }
+
     private AccountResponse mapToResponse(Account account) {
         AccountResponse response = new AccountResponse();
         response.setId(account.getId());
