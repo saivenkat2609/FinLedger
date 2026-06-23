@@ -1,12 +1,24 @@
 package com.ledger.api.dto;
 
+import io.swagger.v3.oas.annotations.media.Schema;
+
 import java.util.UUID;
 
+@Schema(description = "Response payload for account details")
 public class AccountResponse {
+    @Schema(description = "Unique account ID", example = "123e4567-e89b-12d3-a456-426614174000")
     private UUID id;
+
+    @Schema(description = "Account name", example = "Checking Account")
     private String name;
+
+    @Schema(description = "Account type (ASSET, LIABILITY, INCOME, EXPENSE)", example = "ASSET")
     private AccountType type;
+
+    @Schema(description = "Currency code", example = "INR")
     private String currency;
+
+    @Schema(description = "Whether account is active", example = "true")
     private boolean isActive;
 
     public UUID getId() {

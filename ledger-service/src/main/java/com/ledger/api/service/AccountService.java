@@ -7,6 +7,7 @@ import com.ledger.api.dto.CreateAccountRequest;
 import com.ledger.api.exception.AccountAlreadyExistsException;
 import com.ledger.api.exception.AccountNotFoundException;
 import com.ledger.api.repository.AccountRepository;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -49,6 +50,7 @@ public class AccountService {
         return accountRepository.findAll();
     }
 
+    @Cacheable(value = "balances", key = "#accountId")
     public BigDecimal getAccountBalance(UUID accountId) {
         getAccountById(accountId);
         return accountRepository.getAccountBalance(accountId);

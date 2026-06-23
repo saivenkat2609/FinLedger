@@ -66,8 +66,14 @@ public class ReconciliationService {
         // Count transactions in period
         Long transactionCount = transactionRepository.countBySettledAtBetween(startOfDay, endOfDay);
 
-        log.info("Reconciliation report: Debits={}, Credits={}, Difference={}, Balanced={}, Transactions={}",
-                totalDebits, totalCredits, difference, isBalanced, transactionCount);
+        log.info("Reconciliation report generated. Debits={}, Credits={}, Difference={}, Balanced={}, Transactions={}, " +
+                "Period: {} to {}",
+                totalDebits, totalCredits, difference, isBalanced, transactionCount, fromDate, toDate);
+
+        if (!isBalanced) {
+            log.warn("ALERT: Books are NOT balanced! Difference: {}, Period: {} to {}",
+                    difference, fromDate, toDate);
+        }
 
         return ReconciliationReport.builder()
                 .balanced(isBalanced)

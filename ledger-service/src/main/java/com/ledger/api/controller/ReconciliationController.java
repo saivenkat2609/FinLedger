@@ -3,6 +3,11 @@ package com.ledger.api.controller;
 import com.ledger.api.dto.DiscrepancyResponse;
 import com.ledger.api.dto.ReconciliationReport;
 import com.ledger.api.service.ReconciliationService;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.responses.ApiResponses;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.ResponseEntity;
@@ -15,6 +20,7 @@ import java.time.LocalDate;
 import java.util.List;
 
 @Slf4j
+@Tag(name = "Reconciliation", description = "Account reconciliation and balance verification endpoints")
 @RestController
 @RequestMapping("/api/reconciliation")
 public class ReconciliationController {
@@ -25,9 +31,21 @@ public class ReconciliationController {
         this.reconciliationService = reconciliationService;
     }
 
+    @Operation(
+        summary = "Get reconciliation report",
+        description = "Generates a reconciliation report verifying that total debits equal total credits for a date range. " +
+                     "Returns an alert if books are not balanced."
+    )
+    @ApiResponses(value = {
+        @ApiResponse(responseCode = "200", description = "Reconciliation report generated successfully"),
+        @ApiResponse(responseCode = "400", description = "Invalid date range"),
+        @ApiResponse(responseCode = "401", description = "Unauthorized")
+    })
     @GetMapping("/report")
     public ResponseEntity<ReconciliationReport> getReconciliationReport(
+            @Parameter(description = "Start date (YYYY-MM-DD)", example = "2026-06-01")
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
+            @Parameter(description = "End date (YYYY-MM-DD)", example = "2026-06-30")
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to) {
 
         log.info("Reconciliation report requested for period: {} to {}", from, to);
@@ -44,9 +62,21 @@ public class ReconciliationController {
         return ResponseEntity.ok(report);
     }
 
+    @Operation(
+        summary = "Find balance discrepancies",
+        description = "Detects accounts where the cached balance diverges from the database-computed balance. " +
+                     "Useful for identifying cache corruption or staleness."
+    )
+    @ApiResponses(value = {
+        @ApiResponse(responseCode = "200", description = "Discrepancy check completed successfully"),
+        @ApiResponse(responseCode = "400", description = "Invalid date range"),
+        @ApiResponse(responseCode = "401", description = "Unauthorized")
+    })
     @GetMapping("/discrepancies")
     public ResponseEntity<List<DiscrepancyResponse>> getDiscrepancies(
+            @Parameter(description = "Start date (YYYY-MM-DD)", example = "2026-06-01")
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
+            @Parameter(description = "End date (YYYY-MM-DD)", example = "2026-06-30")
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to) {
 
         log.info("Discrepancy check requested for period: {} to {}", from, to);

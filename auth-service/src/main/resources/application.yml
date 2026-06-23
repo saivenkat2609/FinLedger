@@ -56,3 +56,5 @@ springdoc:
 logging:
   level:
     com.ledger.auth: DEBUG
+  pattern:
+    console: "%d{yyyy-MM-dd HH:mm:ss} [%X{X-Correlation-ID}] %-5level %logger{36} - %msg%n"

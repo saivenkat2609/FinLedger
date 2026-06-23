@@ -1,6 +1,9 @@
 spring:
   application:
     name: ledger-service
+  aop:
+    auto: true
+    proxy-target-class: true
 
   # PostgreSQL Configuration
   datasource:
@@ -89,6 +92,11 @@ management:
       show-details: always
       probes:
         enabled: true
+      group:
+        readiness:
+          include: db,kafka,redis,diskSpace
+        liveness:
+          include: ping
   health:
     livenessState:
       enabled: true
@@ -96,6 +104,19 @@ management:
       enabled: true
     diskspace:
       threshold: 1GB
+    db:
+      enabled: true
+    kafka:
+      enabled: true
+    redis:
+      enabled: true
+  metrics:
+    enable:
+      jvm: true
+      process: true
+      system: true
+      logback: true
+      tomcat: true
 
 # Server Configuration
 server:
@@ -125,8 +146,8 @@ logging:
     org.hibernate.SQL: DEBUG
     org.hibernate.type.descriptor.sql.BasicBinder: TRACE
   pattern:
-    console: "%d{yyyy-MM-dd HH:mm:ss} [%X{correlationId}] %-5level %logger{36} - %msg%n"
-    file: "%d{yyyy-MM-dd HH:mm:ss} [%X{correlationId}] %-5level %logger{36} - %msg%n"
+    console: "%d{yyyy-MM-dd HH:mm:ss} [%X{X-Correlation-ID}] %-5level %logger{36} - %msg%n"
+    file: "%d{yyyy-MM-dd HH:mm:ss} [%X{X-Correlation-ID}] %-5level %logger{36} - %msg%n"
   file:
     name: logs/ledger-api.log
     max-size: 10MB

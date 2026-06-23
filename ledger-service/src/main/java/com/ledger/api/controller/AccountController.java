@@ -5,6 +5,13 @@ import com.ledger.api.dto.AccountResponse;
 import com.ledger.api.dto.AccountType;
 import com.ledger.api.dto.CreateAccountRequest;
 import com.ledger.api.service.AccountService;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.Schema;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.responses.ApiResponses;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.*;
@@ -13,6 +20,7 @@ import java.math.BigDecimal;
 import java.util.List;
 import java.util.UUID;
 
+@Tag(name = "Accounts", description = "Account management endpoints")
 @RestController
 @RequestMapping("/api/accounts")
 public class AccountController {
@@ -22,27 +30,56 @@ public class AccountController {
         this.accountService = accountService;
     }
 
+    @Operation(summary = "Create a new account", description = "Creates a new financial account with specified details")
+    @ApiResponses(value = {
+        @ApiResponse(responseCode = "201", description = "Account created successfully"),
+        @ApiResponse(responseCode = "400", description = "Invalid request body or account already exists"),
+        @ApiResponse(responseCode = "401", description = "Unauthorized")
+    })
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
     public AccountResponse createAccount(@Valid @RequestBody CreateAccountRequest request) {
         return accountService.createAccount(request);
     }
 
+    @Operation(summary = "Get account details", description = "Retrieves details of a specific account by ID")
+    @ApiResponses(value = {
+        @ApiResponse(responseCode = "200", description = "Account found"),
+        @ApiResponse(responseCode = "404", description = "Account not found"),
+        @ApiResponse(responseCode = "401", description = "Unauthorized")
+    })
     @GetMapping("/{id}")
-    public AccountResponse getAccount(@PathVariable UUID id) {
+    public AccountResponse getAccount(
+            @Parameter(description = "Account ID", example = "123e4567-e89b-12d3-a456-426614174000")
+            @PathVariable UUID id) {
         Account account = accountService.getAccountById(id);
         return mapToResponse(account);
     }
 
+    @Operation(summary = "Get account balance", description = "Retrieves the current balance of an account (cached, <50ms)")
+    @ApiResponses(value = {
+        @ApiResponse(responseCode = "200", description = "Balance retrieved successfully"),
+        @ApiResponse(responseCode = "404", description = "Account not found"),
+        @ApiResponse(responseCode = "401", description = "Unauthorized")
+    })
     @GetMapping("/{id}/balance")
-    public BalanceResponse getAccountBalance(@PathVariable UUID id) {
+    public BalanceResponse getAccountBalance(
+            @Parameter(description = "Account ID", example = "123e4567-e89b-12d3-a456-426614174000")
+            @PathVariable UUID id) {
         BigDecimal balance = accountService.getAccountBalance(id);
         return new BalanceResponse(id, balance);
     }
 
+    @Operation(summary = "List accounts", description = "Retrieves a list of accounts with optional filtering by type or active status")
+    @ApiResponses(value = {
+        @ApiResponse(responseCode = "200", description = "Accounts retrieved successfully"),
+        @ApiResponse(responseCode = "401", description = "Unauthorized")
+    })
     @GetMapping
     public List<AccountResponse> getAccountsByType(
+            @Parameter(description = "Filter by account type (ASSET, LIABILITY, INCOME, EXPENSE)", example = "ASSET")
             @RequestParam(required = false) AccountType type,
+            @Parameter(description = "Return only active accounts", example = "false")
             @RequestParam(required = false, defaultValue = "false") boolean activeOnly) {
         List<Account> accounts;
         if (activeOnly) {
