@@ -15,6 +15,8 @@ import com.ledger.api.repository.JournalEntryRepository;
 import com.ledger.api.repository.TransactionRepository;
 import lombok.extern.slf4j.Slf4j;
 import org.slf4j.MDC;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Caching;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -41,6 +43,10 @@ public class TransactionService {
     }
 
     @Transactional
+    @Caching(evict = {
+            @CacheEvict(value = "balances", key = "#request.sourceAccountId"),
+            @CacheEvict(value = "balances", key = "#request.destinationAccountId")
+    })
     public TransactionResponse postTransfer(PostTransactionRequest request) {
         // 1. Check for duplicate (idempotency)
         transactionRepository.findByIdempotencyKey(request.getIdempotencyKey())
@@ -121,6 +127,9 @@ public class TransactionService {
         // If Kafka publishing fails, it won't roll back the database transaction
         publishSettlementEvent(savedTransaction, sourceAccount, destinationAccount, settledAt);
 
+        // 12. Log transaction posted event (structured logging)
+        logTransactionPosted(savedTransaction, sourceAccount, destinationAccount);
+
         return mapToResponse(savedTransaction);
     }
 
@@ -141,11 +150,25 @@ public class TransactionService {
             );
 
             eventPublisher.publishTransactionSettlement(event);
+            log.info("Transaction settlement event published to Kafka. Transaction ID: {}, Topic: transaction-settled",
+                    transaction.getId());
         } catch (Exception e) {
             log.warn("Failed to publish transaction settlement event for transaction: {}, but continuing...",
                     transaction.getId(), e);
             // Don't throw - this is async notification, not critical to the transaction
         }
+    }
+
+    private void logTransactionPosted(Transaction transaction, Account sourceAccount, Account destinationAccount) {
+        log.info("Transaction posted successfully. Transaction ID: {}, Amount: {}, Currency: {}, Source Account: {}, " +
+                "Destination Account: {}, Status: {}, Description: {}",
+                transaction.getId(),
+                transaction.getAmount(),
+                transaction.getCurrency(),
+                sourceAccount.getId(),
+                destinationAccount.getId(),
+                transaction.getStatus(),
+                transaction.getDescription());
     }
 
     private TransactionResponse mapToResponse(Transaction transaction) {

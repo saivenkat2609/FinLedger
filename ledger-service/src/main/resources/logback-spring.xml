@@ -1,0 +1,66 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<configuration>
+    <springProperty name="LOG_LEVEL" source="logging.level.root" defaultValue="INFO"/>
+
+    <!-- Console appender with text format (for development) -->
+    <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
+        <encoder>
+            <pattern>%d{yyyy-MM-dd HH:mm:ss} [%X{X-Correlation-ID}] %-5level %logger{36} - %msg%n</pattern>
+        </encoder>
+    </appender>
+
+    <!-- JSON appender (for production / log aggregation) -->
+    <appender name="JSON" class="ch.qos.logback.core.ConsoleAppender">
+        <encoder class="net.logstash.logback.encoder.LogstashEncoder">
+            <includeContext>true</includeContext>
+            <includeMdc>true</includeMdc>
+            <includeCallerInfo>true</includeCallerInfo>
+            <includeStackTrace>true</includeStackTrace>
+            <fieldNames>
+                <timestamp>@timestamp</timestamp>
+                <level>level</level>
+                <loggerName>logger</loggerName>
+                <message>message</message>
+                <version>[ignore]</version>
+            </fieldNames>
+            <customFields>{"service":"ledger-service","environment":"development"}</customFields>
+        </encoder>
+    </appender>
+
+    <!-- File appender with JSON format -->
+    <appender name="JSON_FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
+        <file>logs/ledger-api-json.log</file>
+        <rollingPolicy class="ch.qos.logback.core.rolling.SizeAndTimeBasedRollingPolicy">
+            <fileNamePattern>logs/ledger-api-json.%d{yyyy-MM-dd}.%i.log</fileNamePattern>
+            <maxFileSize>100MB</maxFileSize>
+            <maxHistory>30</maxHistory>
+            <totalSizeCap>10GB</totalSizeCap>
+        </rollingPolicy>
+        <encoder class="net.logstash.logback.encoder.LogstashEncoder">
+            <includeContext>true</includeContext>
+            <includeMdc>true</includeMdc>
+            <includeCallerInfo>true</includeCallerInfo>
+            <includeStackTrace>true</includeStackTrace>
+        </encoder>
+    </appender>
+
+    <!-- Root logger: send to console -->
+    <root level="${LOG_LEVEL}">
+        <appender-ref ref="CONSOLE"/>
+        <appender-ref ref="JSON_FILE"/>
+    </root>
+
+    <!-- Application loggers -->
+    <logger name="com.ledger.api" level="DEBUG"/>
+    <logger name="com.ledger.api.service.TransactionService" level="INFO"/>
+    <logger name="com.ledger.api.service.ReconciliationService" level="INFO"/>
+    <logger name="org.springframework.web" level="INFO"/>
+    <logger name="org.hibernate.SQL" level="DEBUG"/>
+
+    <!-- Spring profiles -->
+    <springProfile name="prod">
+        <root level="INFO">
+            <appender-ref ref="JSON_FILE"/>
+        </root>
+    </springProfile>
+</configuration>

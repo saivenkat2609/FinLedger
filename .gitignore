@@ -4,6 +4,9 @@ target/
 !**/src/main/**/target/
 !**/src/test/**/target/
 *.md
+# Allow important documentation files
+!README.md
+!README-*.md
 
 ### STS ###
 .apt_generated
