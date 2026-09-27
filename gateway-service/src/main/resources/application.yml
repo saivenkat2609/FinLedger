@@ -9,16 +9,64 @@ spring:
           uri: lb://auth-service
           predicates:
             - Path=/auth/**
+          filters:
+            - name: CircuitBreaker
+              args:
+                name: auth-service
+                fallbackUri: forward:/service-unavailable
+            - name: RequestRateLimiter
+              args:
+                redis-rate-limiter.replenishRate: 10
+                redis-rate-limiter.burstCapacity: 20
+                key-resolver: "#{@userKeyResolver}"
+            - name: Retry
+              args:
+                retries: 2
+                methods: GET,POST,PUT,DELETE
+                series: SERVER_ERROR
+                statuses: 500,502,503
 
         - id: ledger-service
           uri: lb://ledger-service
           predicates:
             - Path=/api/**
+          filters:
+            - name: CircuitBreaker
+              args:
+                name: ledger-service
+                fallbackUri: forward:/service-unavailable
+            - name: RequestRateLimiter
+              args:
+                redis-rate-limiter.replenishRate: 20
+                redis-rate-limiter.burstCapacity: 40
+                key-resolver: "#{@userKeyResolver}"
+            - name: Retry
+              args:
+                retries: 2
+                methods: GET,POST,PUT,DELETE
+                series: SERVER_ERROR
+                statuses: 500,502,503
 
         - id: reporting-service
           uri: lb://reporting-service
           predicates:
             - Path=/reports/**
+          filters:
+            - name: CircuitBreaker
+              args:
+                name: reporting-service
+                fallbackUri: forward:/service-unavailable
+            - name: RequestRateLimiter
+              args:
+                redis-rate-limiter.replenishRate: 10
+                redis-rate-limiter.burstCapacity: 20
+                key-resolver: "#{@userKeyResolver}"
+            - name: Retry
+              args:
+                retries: 2
+                methods: GET
+                series: SERVER_ERROR
+                statuses: 500,502,503
 
   data:
     redis:
@@ -44,10 +92,14 @@ management:
   endpoints:
     web:
       exposure:
-        include: health,info,gateway
+        include: health,info,gateway,metrics,circuitbreakers
   endpoint:
     health:
       show-details: always
+  metrics:
+    export:
+      simple:
+        enabled: true
 
 logging:
   level:
@@ -58,3 +110,62 @@ app:
   rate-limit:
     authenticated: 1000
     anonymous: 100
+
+resilience4j:
+  circuitbreaker:
+    configs:
+      default:
+        registerHealthIndicator: true
+        slidingWindowSize: 10
+        failureRateThreshold: 50
+        slowCallRateThreshold: 50
+        slowCallDurationThreshold: 2000
+        permittedNumberOfCallsInHalfOpenState: 3
+        automaticTransitionFromOpenToHalfOpenEnabled: true
+        waitDurationInOpenState: 30000
+        recordExceptions:
+          - java.net.ConnectException
+          - java.util.concurrent.TimeoutException
+          - org.springframework.web.client.HttpServerErrorException
+          - org.springframework.web.client.ResourceAccessException
+        ignoreExceptions:
+          - org.springframework.web.client.HttpClientErrorException
+    instances:
+      auth-service:
+        baseConfig: default
+      ledger-service:
+        baseConfig: default
+      reporting-service:
+        baseConfig: default
+
+  retry:
+    configs:
+      default:
+        maxAttempts: 3
+        waitDuration: 1000
+        intervalFunction: exponentialBackoff
+        exponentialBackoffMultiplier: 2
+        retryExceptions:
+          - java.net.ConnectException
+          - java.util.concurrent.TimeoutException
+          - org.springframework.web.client.ResourceAccessException
+    instances:
+      auth-service:
+        baseConfig: default
+      ledger-service:
+        baseConfig: default
+      reporting-service:
+        baseConfig: default
+
+  timelimiter:
+    configs:
+      default:
+        cancelRunningFuture: true
+        timeoutDuration: 5000
+    instances:
+      auth-service:
+        baseConfig: default
+      ledger-service:
+        baseConfig: default
+      reporting-service:
+        baseConfig: default

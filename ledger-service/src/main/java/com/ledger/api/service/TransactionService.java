@@ -17,11 +17,15 @@ import lombok.extern.slf4j.Slf4j;
 import org.slf4j.MDC;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Caching;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.LocalTime;
 import java.util.UUID;
 
 @Slf4j
@@ -192,5 +196,85 @@ public class TransactionService {
             }
         }
         return response;
+    }
+
+    // === Feature 11: Search, Filtering & Pagination ===
+
+    /**
+     * List all transactions with pagination
+     */
+    public Page<TransactionResponse> listTransactions(Pageable pageable) {
+        return transactionRepository.findAll(pageable)
+                .map(this::mapToResponse);
+    }
+
+    /**
+     * Search transactions with optional filters
+     */
+    public Page<TransactionResponse> searchTransactions(
+            TransactionStatusType status,
+            LocalDate fromDate,
+            LocalDate toDate,
+            BigDecimal minAmount,
+            BigDecimal maxAmount,
+            String currency,
+            Pageable pageable) {
+
+        LocalDateTime startDate = fromDate != null ? fromDate.atStartOfDay() : null;
+        LocalDateTime endDate = toDate != null ? toDate.atTime(LocalTime.MAX) : null;
+
+        Page<Transaction> transactions = transactionRepository.findWithFilters(
+                status,
+                startDate,
+                endDate,
+                minAmount,
+                maxAmount,
+                currency,
+                pageable);
+
+        return transactions.map(this::mapToResponse);
+    }
+
+    /**
+     * Filter transactions by status
+     */
+    public Page<TransactionResponse> findByStatus(TransactionStatusType status, Pageable pageable) {
+        return transactionRepository.findByStatus(status, pageable)
+                .map(this::mapToResponse);
+    }
+
+    /**
+     * Filter transactions by date range
+     */
+    public Page<TransactionResponse> findByDateRange(LocalDate fromDate, LocalDate toDate, Pageable pageable) {
+        LocalDateTime startDate = fromDate.atStartOfDay();
+        LocalDateTime endDate = toDate.atTime(LocalTime.MAX);
+        return transactionRepository.findByCreatedAtBetween(startDate, endDate, pageable)
+                .map(this::mapToResponse);
+    }
+
+    /**
+     * Filter transactions by amount range
+     */
+    public Page<TransactionResponse> findByAmountRange(BigDecimal minAmount, BigDecimal maxAmount, Pageable pageable) {
+        return transactionRepository.findByAmountRange(minAmount, maxAmount, pageable)
+                .map(this::mapToResponse);
+    }
+
+    /**
+     * Filter transactions by currency
+     */
+    public Page<TransactionResponse> findByCurrency(String currency, Pageable pageable) {
+        return transactionRepository.findByCurrency(currency, pageable)
+                .map(this::mapToResponse);
+    }
+
+    /**
+     * Get a single transaction by ID
+     */
+    public TransactionResponse getTransaction(UUID transactionId) {
+        Transaction transaction = transactionRepository.findById(transactionId)
+                .orElseThrow(() -> new RuntimeException("Transaction not found"));
+        return mapToResponse(transaction);
     }
 }

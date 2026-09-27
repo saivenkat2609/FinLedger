@@ -13,6 +13,11 @@ import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
+import org.springdoc.api.annotations.ParameterObject;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
+import org.springframework.data.web.PageableDefault;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.*;
 
@@ -20,7 +25,7 @@ import java.math.BigDecimal;
 import java.util.List;
 import java.util.UUID;
 
-@Tag(name = "Accounts", description = "Account management endpoints")
+@Tag(name = "Accounts", description = "Account management and search endpoints")
 @RestController
 @RequestMapping("/api/accounts")
 public class AccountController {
@@ -41,6 +46,111 @@ public class AccountController {
     public AccountResponse createAccount(@Valid @RequestBody CreateAccountRequest request) {
         return accountService.createAccount(request);
     }
+
+    // === GET endpoints: Literal paths BEFORE path variables ===
+
+    @Operation(
+        summary = "List all accounts",
+        description = "Retrieve paginated list of all accounts. Results are sorted by name."
+    )
+    @ApiResponse(responseCode = "200", description = "List of accounts")
+    @GetMapping
+    public Page<AccountResponse> listAccounts(
+            @ParameterObject
+            @PageableDefault(size = 20, page = 0, sort = "name", direction = Sort.Direction.ASC)
+            Pageable pageable) {
+        return accountService.listAccounts(pageable);
+    }
+
+    @Operation(
+        summary = "Search and filter accounts",
+        description = "Search accounts with optional filters for type, currency, status, and name. " +
+                     "All filters are optional. Results are paginated and sorted by name."
+    )
+    @ApiResponse(responseCode = "200", description = "Filtered accounts")
+    @GetMapping("/search")
+    public Page<AccountResponse> searchAccounts(
+            @Parameter(description = "Filter by account type (ASSET, LIABILITY, INCOME, EXPENSE)")
+            @RequestParam(required = false) AccountType type,
+
+            @Parameter(description = "Filter by currency code (e.g., INR, USD)")
+            @RequestParam(required = false) String currency,
+
+            @Parameter(description = "Return only active accounts (default: false)")
+            @RequestParam(required = false, defaultValue = "false") boolean onlyActive,
+
+            @Parameter(description = "Search by account name (contains)")
+            @RequestParam(required = false) String search,
+
+            @ParameterObject
+            @PageableDefault(size = 20, page = 0, sort = "name", direction = Sort.Direction.ASC)
+            Pageable pageable) {
+
+        return accountService.searchAccounts(type, currency, onlyActive, search, pageable);
+    }
+
+    @Operation(
+        summary = "Search accounts by name",
+        description = "Search accounts where name contains the search term (case-insensitive)"
+    )
+    @ApiResponse(responseCode = "200", description = "Accounts matching search term")
+    @GetMapping("/search/by-name")
+    public Page<AccountResponse> searchByName(
+            @Parameter(description = "Search term to match against account names", required = true)
+            @RequestParam String search,
+
+            @ParameterObject
+            @PageableDefault(size = 20, page = 0, sort = "name", direction = Sort.Direction.ASC)
+            Pageable pageable) {
+        return accountService.searchByName(search, pageable);
+    }
+
+    @Operation(
+        summary = "Filter accounts by type",
+        description = "Get all accounts of a specific type (ASSET, LIABILITY, INCOME, EXPENSE)"
+    )
+    @ApiResponse(responseCode = "200", description = "Accounts of specified type")
+    @GetMapping("/by-type")
+    public Page<AccountResponse> filterByType(
+            @Parameter(description = "Account type", required = true)
+            @RequestParam AccountType type,
+
+            @ParameterObject
+            @PageableDefault(size = 20, page = 0, sort = "name", direction = Sort.Direction.ASC)
+            Pageable pageable) {
+        return accountService.findByType(type, pageable);
+    }
+
+    @Operation(
+        summary = "Filter accounts by currency",
+        description = "Get all accounts for a specific currency"
+    )
+    @ApiResponse(responseCode = "200", description = "Accounts for specified currency")
+    @GetMapping("/by-currency")
+    public Page<AccountResponse> filterByCurrency(
+            @Parameter(description = "Currency code (e.g., INR, USD)", required = true)
+            @RequestParam String currency,
+
+            @ParameterObject
+            @PageableDefault(size = 20, page = 0, sort = "name", direction = Sort.Direction.ASC)
+            Pageable pageable) {
+        return accountService.findByCurrency(currency, pageable);
+    }
+
+    @Operation(
+        summary = "List active accounts only",
+        description = "Get all active accounts"
+    )
+    @ApiResponse(responseCode = "200", description = "Active accounts")
+    @GetMapping("/active")
+    public Page<AccountResponse> filterActiveAccounts(
+            @ParameterObject
+            @PageableDefault(size = 20, page = 0, sort = "name", direction = Sort.Direction.ASC)
+            Pageable pageable) {
+        return accountService.findActiveAccounts(pageable);
+    }
+
+    // === Path variables: AFTER all literal paths ===
 
     @Operation(summary = "Get account details", description = "Retrieves details of a specific account by ID")
     @ApiResponses(value = {
@@ -68,28 +178,6 @@ public class AccountController {
             @PathVariable UUID id) {
         BigDecimal balance = accountService.getAccountBalance(id);
         return new BalanceResponse(id, balance);
-    }
-
-    @Operation(summary = "List accounts", description = "Retrieves a list of accounts with optional filtering by type or active status")
-    @ApiResponses(value = {
-        @ApiResponse(responseCode = "200", description = "Accounts retrieved successfully"),
-        @ApiResponse(responseCode = "401", description = "Unauthorized")
-    })
-    @GetMapping
-    public List<AccountResponse> getAccountsByType(
-            @Parameter(description = "Filter by account type (ASSET, LIABILITY, INCOME, EXPENSE)", example = "ASSET")
-            @RequestParam(required = false) AccountType type,
-            @Parameter(description = "Return only active accounts", example = "false")
-            @RequestParam(required = false, defaultValue = "false") boolean activeOnly) {
-        List<Account> accounts;
-        if (activeOnly) {
-            accounts = accountService.getActiveAccounts();
-        } else if (type != null) {
-            accounts = accountService.getAccountsByType(type);
-        } else {
-            accounts = accountService.getAllAccounts();
-        }
-        return accounts.stream().map(this::mapToResponse).toList();
     }
 
     private AccountResponse mapToResponse(Account account) {
